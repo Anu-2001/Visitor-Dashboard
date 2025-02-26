@@ -1,6 +1,6 @@
-# ** Draco National Park Visitor Dashboard** 
+# **Draco National Park Visitor Dashboard** 
 
-# **Project Overview**
+## **Project Overview**
 The Draco National Park Visitor Dashboard is an interactive Streamlit-based data visualization tool designed to analyze visitor trends, visitor type distributions, and forecast future visitor trends based on historical data and weather conditions.
 
 This project helps park analysts and decision-makers:
