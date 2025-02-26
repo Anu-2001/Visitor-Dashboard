@@ -1,35 +1,30 @@
 import pandas as pd
-from sklearn.linear_model import LinearRegression
 from prophet import Prophet
-import plotly.graph_objects as go
-import numpy as np
 
 def process_visitor_data(df, time_frame):
-    """Processes visitor data based on daily, weekly, and monthly aggregation."""
-    df.columns = df.columns.str.strip()  # Remove trailing spaces from column names
+    """Aggregates visitor data based on the selected time frame."""
+    df.columns = df.columns.str.strip()
     df["Date"] = pd.to_datetime(df["Date"])
     df["Number of Visitors"] = df["Number of Visitors"].astype(int)
 
-    if time_frame == "Daily":
-        return df.groupby("Date")[["Number of Visitors"]].sum().reset_index()
-    elif time_frame == "Weekly":
-        df["Week"] = df["Date"].dt.strftime('%Y-%U')
-        return df.groupby("Week")[["Number of Visitors"]].sum().reset_index()
-    elif time_frame == "Monthly":
-        df["Month"] = df["Date"].dt.strftime('%Y-%m')
-        return df.groupby("Month")[["Number of Visitors"]].sum().reset_index()
-    return df
+    time_formats = {
+        "Daily": "Date",
+        "Weekly": df["Date"].dt.strftime('%Y-%U'),
+        "Monthly": df["Date"].dt.strftime('%Y-%m')
+    }
+
+    if time_frame in time_formats:
+        return df.groupby(time_formats[time_frame])[["Number of Visitors"]].sum().reset_index()
+    
+    return df  
 
 def process_visitor_type_data(df):
-    """Processes visitor type data for stacked bar visualization."""
+    """Prepares visitor type data for visualization."""
     df.columns = df.columns.str.strip()
-    df["Month"] = pd.to_datetime(df["Date"]).dt.strftime('%Y-%m')
-
-    # Pivot table to create separate columns for each visitor type
-    visitor_type_pivot = df.pivot_table(index="Month", columns="Visitor Type", values="Number of Visitors", aggfunc="sum").fillna(0)
+    df["Month"] = df["Date"].dt.strftime('%Y-%m')
     
-    # Reset index to make it a flat DataFrame
-    return visitor_type_pivot.reset_index()
+    return df.pivot_table(index="Month", columns="Visitor Type", 
+                          values="Number of Visitors", aggfunc="sum").fillna(0).reset_index()
 
 def predict_trends(df, selected_visitor_type, selected_weather):
     def predict_trends(df, selected_visitor_type, selected_weather):
@@ -41,7 +36,7 @@ def predict_trends(df, selected_visitor_type, selected_weather):
     # Filter by visitor type
     df = df[df["Visitor Type"] == selected_visitor_type]
 
-    # Apply weather condition filter (only if sufficient data exists)
+    # Apply weather condition filter
     if selected_weather != "All":
         filtered_df = df[df["Weather Condition"] == selected_weather]
         if len(filtered_df) > 5:  # Ensure enough data points exist
@@ -50,10 +45,10 @@ def predict_trends(df, selected_visitor_type, selected_weather):
     # Aggregate visitor numbers per month (matches stacked bar graph scale)
     monthly_visitors = df.resample("M", on="Date")["Number of Visitors"].sum().reset_index()
 
-    if len(monthly_visitors) < 5:  # Avoid errors due to insufficient data
+    if len(monthly_visitors) < 5:  # To prevent errors due to insufficient data
         return pd.DataFrame({"Date": [], "Predicted_Visitors": [], "Actual_Visitors": []})
 
-    # Prepare Prophet model with seasonality for better predictions
+    # Train Prophet model with seasonality for better predictions
     prophet_df = monthly_visitors.rename(columns={"Date": "ds", "Number of Visitors": "y"})
     model = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
     model.add_seasonality(name="monthly", period=30.5, fourier_order=5)

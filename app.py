@@ -4,49 +4,50 @@ import plotly.express as px
 import plotly.graph_objects as go
 from process_data import process_visitor_data, process_visitor_type_data, predict_trends
 
-# Set page title
+# Title
 st.title("Draco National Park Dashboard")
 
-# File upload
+# upload File
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
-if uploaded_file is not None:
+if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    df.columns = df.columns.str.strip()  # Remove any trailing spaces from column names
+    df.columns = df.columns.str.strip() 
+    df["Date"] = pd.to_datetime(df["Date"])
 
     # Visitor Analysis (Daily, Weekly, Monthly)
     st.header("Visitor Analysis")
     time_option = st.selectbox("Select Time Frame", ["Daily", "Weekly", "Monthly"])
     visitor_data = process_visitor_data(df, time_option)
+
     fig_visitor = px.line(visitor_data, 
-                          x=visitor_data.columns[0],  # Automatically selects 'Date', 'Week', or 'Month'
+                          x=visitor_data.columns[0], 
                           y="Number of Visitors", 
                           title="Visitor Trends",
-                          line_shape="linear",
-                          color_discrete_sequence=["darkblue"])  # Set color to darkblue
+                          color_discrete_sequence=["darkblue"])  
     st.plotly_chart(fig_visitor)
 
-    # Visitor Type Analysis (Stacked Bar Chart with Total Count on Top)
+    # Visitor Type Analysis (Stacked Bar Chart)
     st.header("Visitor Type Analysis")
     visitor_type_data = process_visitor_type_data(df)
     visitor_type_data["Total Visitors"] = visitor_type_data.iloc[:, 1:].sum(axis=1)
-    visitor_type_data["Month"] = pd.to_datetime(visitor_type_data["Month"]).dt.strftime('%b')  # Format month name only
+    visitor_type_data["Month"] = pd.to_datetime(visitor_type_data["Month"]).dt.strftime('%b')  
 
     fig_type = px.bar(visitor_type_data, 
                       x="Month", 
-                      y=visitor_type_data.columns[1:-1],  # Dynamically selects all visitor type columns
+                      y=visitor_type_data.columns[1:-1],  
                       title="Visitor Type Counts", 
                       barmode="stack",
-                      text_auto=True)  # Adds text labels inside bars
-    
-    # Add total visitor count as annotations slightly above each bar
+                      text_auto=True)  
+
+    # Display total visitors as annotations above bars
     for i, row in visitor_type_data.iterrows():
         fig_type.add_annotation(x=row["Month"], y=row["Total Visitors"] + 500, text=str(row["Total Visitors"]), 
                                 showarrow=False, font=dict(size=12, color="black"))
     
     st.plotly_chart(fig_type)
 
-    # Trend Prediction
+    # Trend Prediction (Dual axis chart)
     st.header("Trend Prediction")
 
 if uploaded_file is not None:
@@ -58,7 +59,7 @@ if uploaded_file is not None:
     weather_options = ["All"] + df["Weather Condition"].unique().tolist()
     selected_weather = st.selectbox("Select Weather Condition for Prediction", weather_options)
 
-    # Get predictions based on visitor type + weather condition
+    # predictions (visitor type + weather condition)
     future_trends = predict_trends(df, selected_visitor_type, selected_weather)
 
     # Prepare historical data for comparison
@@ -71,17 +72,17 @@ if uploaded_file is not None:
     if future_trends.empty or historical_data.empty:
         st.warning("Not enough historical data for this combination. Try selecting 'All' for weather.")
     else:
-        # Create dual-axis plot with increased figure size
+        
         fig = go.Figure()
 
-        # Add historical data (Actual Visitors - Solid Orange Line)
+        # historical data
         fig.add_trace(go.Scatter(x=historical_data["Date"], 
                                  y=historical_data["Number of Visitors"],
                                  mode='lines+markers', 
                                  name="Actual Visitors", 
                                  line=dict(color="orange")))
 
-        # Add future predictions (Predicted Visitors - Dotted Purple Line)
+        # future predictions 
         fig.add_trace(go.Scatter(x=future_trends["Date"], 
                                  y=future_trends["Predicted_Visitors"],
                                  mode='lines+markers', 
